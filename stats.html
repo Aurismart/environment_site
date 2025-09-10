@@ -121,6 +121,21 @@
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script>
+      // ===== IndexedDB 簡易快取：把解析後資料存起來，下次直接讀 =====
+      const DB_NAME = 'aurismart-cache';
+      const STORE = 'datasets';
+      function idbOpen(){
+        return new Promise((resolve, reject)=>{
+          const req = indexedDB.open(DB_NAME, 1);
+          req.onupgradeneeded = ()=>{ const db=req.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE); };
+          req.onsuccess = ()=> resolve(req.result);
+          req.onerror = ()=> reject(req.error);
+        });
+      }
+      async function idbGet(key){ const db=await idbOpen(); return new Promise((resolve,reject)=>{ const tx=db.transaction(STORE,'readonly'); const st=tx.objectStore(STORE); const r=st.get(key); r.onsuccess=()=>resolve(r.result||null); r.onerror=()=>reject(r.error); }); }
+      async function idbSet(key, val){ const db=await idbOpen(); return new Promise((resolve,reject)=>{ const tx=db.transaction(STORE,'readwrite'); const st=tx.objectStore(STORE); const r=st.put(val, key); r.onsuccess=()=>resolve(); r.onerror=()=>reject(r.error); }); }
+      async function headMeta(url){ try{ const res=await fetch(url,{method:'HEAD',cache:'no-cache'}); return { etag: res.headers.get('etag')||'', lm: res.headers.get('last-modified')||'' }; } catch(_){ return {etag:'', lm:''}; } }
+      function sameMeta(a,b){ return (a?.etag && b?.etag && a.etag===b.etag) || (a?.lm && b?.lm && a.lm===b.lm); }
       // CSV 檔案將優先讀取 asset/，若不存在則 fallback 到舊路徑
       const csvCandidates = [
         'src/assets/tbia_687f2cbd9387a60017b1b656(赤蛙).csv',
@@ -282,29 +297,10 @@
 
       (async function init(){
         const csvPath = await resolveFirstAccessible(csvCandidates);
-        Papa.parse(csvPath, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        worker: true,
-        dynamicTyping: false,
-        complete: (results) => {
-          const rows = Array.isArray(results.data) ? results.data : [];
-          const parsed = rows
-            .map(r => {
-              const lat = parseFloat(r.standardLatitude);
-              const lon = parseFloat(r.standardLongitude);
-              const d = r.standardDate ? parseDateToUTC(r.standardDate) : null;
-              const dateKey = d ? fmtDateKey(d) : null;
-              const county = r.county || '';
-              const township = r.municipality || '';
-              const locality = r.locality || '';
-              const placeText = [county, township, locality].filter(Boolean).join('');
-              return { lat, lon, dateKey, name: r.common_name_c, county, township, locality, placeText, date: d };
-            })
-            .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon) && p.dateKey && isOnTaiwanMainIsland(p.lat, p.lon));
-
-          allRows = parsed; // 全部資料
+        const metaNow = await headMeta(csvPath);
+        const cacheKey = 'csv:'+csvPath;
+        const cached = await idbGet(cacheKey);
+        function afterDataReady(){
           initDatesFromQuery();
           // 物種下拉（含數量並依數量排序）
           const spCountsAll = allRows.reduce((m,r)=>{ const k=r.name||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
@@ -341,9 +337,42 @@
           document.getElementById('ctAll').addEventListener('click', ()=>{ ctGroup.querySelectorAll('input[type="checkbox"]').forEach(ch=>ch.checked=true); });
           document.getElementById('ctNone').addEventListener('click', ()=>{ ctGroup.querySelectorAll('input[type="checkbox"]').forEach(ch=>ch.checked=false); });
           applyFilter();
-        },
-        error: (err) => { console.error('CSV 解析失敗：', err); }
-      });
+        }
+
+        if (cached && sameMeta(metaNow, cached.meta) && Array.isArray(cached.data)){
+          allRows = cached.data;
+          afterDataReady();
+          return;
+        }
+
+        Papa.parse(csvPath, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          worker: true,
+          dynamicTyping: false,
+          complete: (results) => {
+            const rows = Array.isArray(results.data) ? results.data : [];
+            const parsed = rows
+              .map(r => {
+                const lat = parseFloat(r.standardLatitude);
+                const lon = parseFloat(r.standardLongitude);
+                const d = r.standardDate ? parseDateToUTC(r.standardDate) : null;
+                const dateKey = d ? fmtDateKey(d) : null;
+                const county = r.county || '';
+                const township = r.municipality || '';
+                const locality = r.locality || '';
+                const placeText = [county, township, locality].filter(Boolean).join('');
+                return { lat, lon, dateKey, name: r.common_name_c, county, township, locality, placeText, date: d };
+              })
+              .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon) && p.dateKey && isOnTaiwanMainIsland(p.lat, p.lon));
+
+            allRows = parsed; // 全部資料
+            idbSet(cacheKey, { meta: metaNow, data: allRows }).catch(()=>{});
+            afterDataReady();
+          },
+          error: (err) => { console.error('CSV 解析失敗：', err); }
+        });
       })();
 
       // 設定 active tab

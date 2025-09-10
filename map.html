@@ -109,6 +109,22 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script>
+      // ===== IndexedDB 簡易快取：把解析後資料存起來，下次直接讀 =====
+      const DB_NAME = 'aurismart-cache';
+      const STORE = 'datasets';
+      function idbOpen(){
+        return new Promise((resolve, reject)=>{
+          const req = indexedDB.open(DB_NAME, 1);
+          req.onupgradeneeded = ()=>{ const db=req.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE); };
+          req.onsuccess = ()=> resolve(req.result);
+          req.onerror = ()=> reject(req.error);
+        });
+      }
+      async function idbGet(key){ const db=await idbOpen(); return new Promise((resolve,reject)=>{ const tx=db.transaction(STORE,'readonly'); const st=tx.objectStore(STORE); const r=st.get(key); r.onsuccess=()=>resolve(r.result||null); r.onerror=()=>reject(r.error); }); }
+      async function idbSet(key, val){ const db=await idbOpen(); return new Promise((resolve,reject)=>{ const tx=db.transaction(STORE,'readwrite'); const st=tx.objectStore(STORE); const r=st.put(val, key); r.onsuccess=()=>resolve(); r.onerror=()=>reject(r.error); }); }
+      async function headMeta(url){ try{ const res=await fetch(url,{method:'HEAD',cache:'no-cache'}); return { etag: res.headers.get('etag')||'', lm: res.headers.get('last-modified')||'' }; } catch(_){ return {etag:'', lm:''}; } }
+      function sameMeta(a,b){ return (a?.etag && b?.etag && a.etag===b.etag) || (a?.lm && b?.lm && a.lm===b.lm); }
+
       const map = L.map('map', { preferCanvas: true }).setView([23.6978, 120.9605], 7);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap 貢獻者' }).addTo(map);
       // CSV 檔案將優先讀取 asset/，若不存在則 fallback 到舊路徑
@@ -341,6 +357,24 @@
       applyBtn.addEventListener('click', applyFilter);
       (async function init(){
         const csvPath = await resolveFirstAccessible(csvCandidates);
+        // 優先從 IndexedDB 取，若檔案有更新再重新解析
+        const metaNow = await headMeta(csvPath);
+        const cacheKey = 'csv:'+csvPath;
+        const cached = await idbGet(cacheKey);
+        if (cached && sameMeta(metaNow, cached.meta) && Array.isArray(cached.data)){
+          allRows = cached.data;
+          initDatesFromQuery();
+          const prefList = JSON.parse(dom.spGroup.dataset.pref || '[]');
+          const prefCity = JSON.parse(dom.ctGroup.dataset.pref || '[]');
+          const spCountsAll = allRows.reduce((m,r)=>{ const k=r.name||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
+          populateSpeciesOptions(Object.keys(spCountsAll), prefList, spCountsAll);
+          const cCounts = allRows.reduce((m,r)=>{ const k=r.county||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
+          const cities = Object.keys(cCounts).sort((a,b)=> cCounts[b]-cCounts[a] || a.localeCompare(b,'zh-Hant'));
+          populateCityOptions(cities, prefCity, cCounts);
+          applyFilter();
+          return;
+        }
+
         Papa.parse(csvPath,{
           download:true,
           header:true,
@@ -351,6 +385,8 @@
             const rows=Array.isArray(results.data)?results.data:[];
             const parsed=rows.map(r=>{ const lat=parseFloat(r.standardLatitude); const lon=parseFloat(r.standardLongitude); const d=r.standardDate?parseDateToUTC(r.standardDate):null; const dateKey=d?fmtDateKey(d):null; const county=r.county||''; const muni=r.municipality||''; const locality=r.locality||''; const placeText=[county,muni,locality].filter(Boolean).join(''); return {lat,lon,name:r.common_name_c,date:d,dateKey,county,municipality:muni,locality,placeText}; }).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.date&&isOnTaiwanMainIsland(p.lat,p.lon));
             allRows=parsed; // 顯示全部
+            // 寫入快取
+            idbSet(cacheKey, { meta: metaNow, data: allRows }).catch(()=>{});
             initDatesFromQuery();
             const prefList = JSON.parse(dom.spGroup.dataset.pref || '[]');
             const prefCity = JSON.parse(dom.ctGroup.dataset.pref || '[]');
