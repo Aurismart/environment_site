@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <style>
       :root { --brand: #02C58A; --topbar-h: 64px; }
-      @font-face { font-family: 'JFOpenHuninn'; src: url('public/jf-openhuninn-2.1.ttf') format('truetype'); font-display: swap; }
+      @font-face { font-family: 'JFOpenHuninn'; src: url('src/assets/jf-openhuninn-2.1.ttf') format('truetype'); font-display: swap; }
       html, body { height: 100%; margin: 0; }
       body { font-family: 'JFOpenHuninn', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans"; }
       .topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); background: var(--brand); color: #fff; display: flex; align-items: center; padding: 0 20px; box-shadow: 0 2px 0 rgba(0,0,0,0.08); z-index: 1500; }
@@ -109,9 +109,23 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script>
-      const map = L.map('map').setView([23.6978, 120.9605], 7);
+      const map = L.map('map', { preferCanvas: true }).setView([23.6978, 120.9605], 7);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap 貢獻者' }).addTo(map);
-      const csvPath = 'tbia_687f2cbd9387a60017b1b656(赤蛙).csv';
+      // CSV 檔案將優先讀取 asset/，若不存在則 fallback 到舊路徑
+      const csvCandidates = [
+        'src/assets/tbia_687f2cbd9387a60017b1b656(赤蛙).csv',
+        'src/assets/tbia_687f2cbd9387a60017b1b656(赤蛙).csv',
+        'tbia_687f2cbd9387a60017b1b656(赤蛙).csv'
+      ];
+      function toAbs(u){ try { return new URL(u, location.href).href; } catch(_) { return u; } }
+      async function resolveFirstAccessible(urls){
+        for (const u of urls){
+          const abs = toAbs(u);
+          try { const res = await fetch(abs, { method: 'HEAD', cache: 'no-cache' }); if (res.ok) return abs; } catch(_) {}
+        }
+        return toAbs(urls[0]);
+      }
+      const canvasRenderer = L.canvas({ padding: 0.5 });
       let allRows = [], filteredRows = [], dateKeys = []; let sliderIndex = 0; let timer = null; const markersLayer = L.layerGroup().addTo(map);
       let timeUnit = null; // 選擇的時間粒度：day/week/month/year 或 null
       const dom = { start: startDate, end: endDate, spGroup: document.getElementById('speciesGroup'), spAll: document.getElementById('spSelectAll'), spNone: document.getElementById('spSelectNone'), ctGroup: document.getElementById('cityGroup'), ctAll: document.getElementById('ctSelectAll'), ctNone: document.getElementById('ctSelectNone'), apply: applyBtn, play: playBtn, slider: timeSlider, duration: durationSec, curDate: currentDate, shown: shownCount, total: totalCount, gran: document.getElementById('granularity') };
@@ -141,7 +155,7 @@
       }
       function drawPoints(rows, minD, maxD){
         markersLayer.clearLayers();
-        rows.forEach(p=>{ const fill=colorForDate(p.date, minD, maxD); L.circleMarker([p.lat,p.lon],{radius:4,color:'#a22',fillColor:fill,fillOpacity:0.9,weight:1}).bindPopup(`${p.name||'未知物種'}<br>${p.dateKey}<br>(${p.lat.toFixed(5)}, ${p.lon.toFixed(5)})`).addTo(markersLayer); });
+        rows.forEach(p=>{ const fill=colorForDate(p.date, minD, maxD); L.circleMarker([p.lat,p.lon],{radius:4,color:'#a22',fillColor:fill,fillOpacity:0.9,weight:1, renderer: canvasRenderer}).bindPopup(`${p.name||'未知物種'}<br>${p.dateKey}<br>(${p.lat.toFixed(5)}, ${p.lon.toFixed(5)})`).addTo(markersLayer); });
       }
       function startOf(date, unit){ const d=new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())); if(unit==='year') d.setUTCMonth(0,1); else if(unit==='month') d.setUTCDate(1); else if(unit==='week'){ const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day);} return d; }
       function endOf(date, unit){ const s=startOf(date,unit); const d=new Date(s); if(unit==='year') d.setUTCFullYear(d.getUTCFullYear()+1); else if(unit==='month') d.setUTCMonth(d.getUTCMonth()+1); else if(unit==='week') d.setUTCDate(d.getUTCDate()+7); else d.setUTCDate(d.getUTCDate()+1); return new Date(d.getTime()-1); }
@@ -325,21 +339,32 @@
         tick();
       });
       applyBtn.addEventListener('click', applyFilter);
-      Papa.parse(csvPath,{ download:true, header:true, skipEmptyLines:true, complete:(results)=>{
-        const rows=Array.isArray(results.data)?results.data:[];
-        const parsed=rows.map(r=>{ const lat=parseFloat(r.standardLatitude); const lon=parseFloat(r.standardLongitude); const d=r.standardDate?parseDateToUTC(r.standardDate):null; const dateKey=d?fmtDateKey(d):null; const county=r.county||''; const muni=r.municipality||''; const locality=r.locality||''; const placeText=[county,muni,locality].filter(Boolean).join(''); return {lat,lon,name:r.common_name_c,date:d,dateKey,county,municipality:muni,locality,placeText}; }).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.date&&isOnTaiwanMainIsland(p.lat,p.lon));
-        allRows=parsed; // 顯示全部
-        initDatesFromQuery();
-        const prefList = JSON.parse(dom.spGroup.dataset.pref || '[]');
-        const prefCity = JSON.parse(dom.ctGroup.dataset.pref || '[]');
-        const spCountsAll = allRows.reduce((m,r)=>{ const k=r.name||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
-        populateSpeciesOptions(Object.keys(spCountsAll), prefList, spCountsAll);
-        // 依全部資料建立地點（以縣市）與次數排序
-        const cCounts = allRows.reduce((m,r)=>{ const k=r.county||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
-        const cities = Object.keys(cCounts).sort((a,b)=> cCounts[b]-cCounts[a] || a.localeCompare(b,'zh-Hant'));
-        populateCityOptions(cities, prefCity, cCounts);
-        applyFilter();
-      }, error:(err)=>console.error('CSV 解析失敗：',err) });
+      (async function init(){
+        const csvPath = await resolveFirstAccessible(csvCandidates);
+        Papa.parse(csvPath,{
+          download:true,
+          header:true,
+          skipEmptyLines:true,
+          worker:true,
+          dynamicTyping:false,
+          complete:(results)=>{
+            const rows=Array.isArray(results.data)?results.data:[];
+            const parsed=rows.map(r=>{ const lat=parseFloat(r.standardLatitude); const lon=parseFloat(r.standardLongitude); const d=r.standardDate?parseDateToUTC(r.standardDate):null; const dateKey=d?fmtDateKey(d):null; const county=r.county||''; const muni=r.municipality||''; const locality=r.locality||''; const placeText=[county,muni,locality].filter(Boolean).join(''); return {lat,lon,name:r.common_name_c,date:d,dateKey,county,municipality:muni,locality,placeText}; }).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.date&&isOnTaiwanMainIsland(p.lat,p.lon));
+            allRows=parsed; // 顯示全部
+            initDatesFromQuery();
+            const prefList = JSON.parse(dom.spGroup.dataset.pref || '[]');
+            const prefCity = JSON.parse(dom.ctGroup.dataset.pref || '[]');
+            const spCountsAll = allRows.reduce((m,r)=>{ const k=r.name||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
+            populateSpeciesOptions(Object.keys(spCountsAll), prefList, spCountsAll);
+            // 依全部資料建立地點（以縣市）與次數排序
+            const cCounts = allRows.reduce((m,r)=>{ const k=r.county||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
+            const cities = Object.keys(cCounts).sort((a,b)=> cCounts[b]-cCounts[a] || a.localeCompare(b,'zh-Hant'));
+            populateCityOptions(cities, prefCity, cCounts);
+            applyFilter();
+          },
+          error:(err)=>console.error('CSV 解析失敗：',err)
+        });
+      })();
     </script>
   </body>
   

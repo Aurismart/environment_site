@@ -13,7 +13,7 @@
       :root { --brand: #02C58A; --topbar-h: 64px; }
       @font-face {
         font-family: 'JFOpenHuninn';
-        src: url('public/jf-openhuninn-2.1.ttf') format('truetype');
+        src: url('src/assets/jf-openhuninn-2.1.ttf') format('truetype');
         font-display: swap;
       }
       html, body { height: 100%; margin: 0; }
@@ -121,7 +121,20 @@
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script>
-      const csvPath = 'tbia_687f2cbd9387a60017b1b656(赤蛙).csv';
+      // CSV 檔案將優先讀取 asset/，若不存在則 fallback 到舊路徑
+      const csvCandidates = [
+        'src/assets/tbia_687f2cbd9387a60017b1b656(赤蛙).csv',
+        'src/assets/tbia_687f2cbd9387a60017b1b656(赤蛙).csv',
+        'tbia_687f2cbd9387a60017b1b656(赤蛙).csv'
+      ];
+      function toAbs(u){ try { return new URL(u, location.href).href; } catch(_) { return u; } }
+      async function resolveFirstAccessible(urls){
+        for (const u of urls){
+          const abs = toAbs(u);
+          try { const res = await fetch(abs, { method: 'HEAD', cache: 'no-cache' }); if (res.ok) return abs; } catch(_) {}
+        }
+        return toAbs(urls[0]);
+      }
       function fmtDateKey(d) {
         const y = d.getUTCFullYear();
         const m = String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -155,7 +168,16 @@
         pgInfo: document.getElementById('pgInfo'),
       };
       // 以專案掃描結果嵌入音檔清單，循環指派給列
-      const audioFiles = ["public/wav/ABC_RZNT3SHdI44.wav","public/wav/ABC_pJcanb2IvU.wav","public/wav/AFC_Eps6DaYre18.wav","public/wav/AFC_VhTBFgbkHY.wav","public/wav/AFL_7i4x1kEhAk.wav","public/wav/AHC_TBRI250613Long.wav","public/wav/AHC_TBRI250613continueLong.wav","public/wav/AHI_FONOnaEHlqc.wav","public/wav/AHI_sTMXv7pNYwQ.wav","public/wav/AKI_wr4hbnlcQE.wav","public/wav/AMF_SkU2kA32YI.wav","public/wav/AMH_JBS0qGsE0IA.wav","public/wav/AMH_vpicNnrmx3U.wav","public/wav/AMS_nLiYlZkfkdE.wav","public/wav/ANA_QS5qrwmJM6Q.wav","public/wav/ANO_j6iBokzyC5A.wav","public/wav/ARS_DaF1M6Z8RHg.wav","public/wav/AZA_X3j1JmfItE8.wav","public/wav/AZA_cRtYWWi1oJ0.wav","public/wav/AZA_sSl36Suqsy0.wav","public/wav/AZM_9rKiGSVwpM0.wav","public/wav/AZP_2dN18XsU1Rw.wav","public/wav/AZP_IsvUL8JQZo.wav","public/wav/AZU_kgRF6kACkmM.wav"]; 
+      const audioFiles = [
+        "src/assets/wav/ABC_RZNT3SHdI44.wav","src/assets/wav/ABC_pJcanb2IvU.wav","src/assets/wav/AFC_Eps6DaYre18.wav",
+        "src/assets/wav/AFC_VhTBFgbkHY.wav","src/assets/wav/AFL_7i4x1kEhAk.wav","src/assets/wav/AHC_TBRI250613Long.wav",
+        "src/assets/wav/AHC_TBRI250613continueLong.wav","src/assets/wav/AHI_FONOnaEHlqc.wav","src/assets/wav/AHI_sTMXv7pNYwQ.wav",
+        "src/assets/wav/AKI_wr4hbnlcQE.wav","src/assets/wav/AMF_SkU2kA32YI.wav","src/assets/wav/AMH_JBS0qGsE0IA.wav",
+        "src/assets/wav/AMH_vpicNnrmx3U.wav","src/assets/wav/AMS_nLiYlZkfkdE.wav","src/assets/wav/ANA_QS5qrwmJM6Q.wav",
+        "src/assets/wav/ANO_j6iBokzyC5A.wav","src/assets/wav/ARS_DaF1M6Z8RHg.wav","src/assets/wav/AZA_X3j1JmfItE8.wav",
+        "src/assets/wav/AZA_cRtYWWi1oJ0.wav","src/assets/wav/AZA_sSl36Suqsy0.wav","src/assets/wav/AZM_9rKiGSVwpM0.wav",
+        "src/assets/wav/AZP_2dN18XsU1Rw.wav","src/assets/wav/AZP_IsvUL8JQZo.wav","src/assets/wav/AZU_kgRF6kACkmM.wav"
+      ]; 
 
       function todayStr(){ return new Date().toISOString().slice(0,10); }
       let allRows = [], filtered = [];
@@ -258,10 +280,14 @@
         }
       }
 
-      Papa.parse(csvPath, {
+      (async function init(){
+        const csvPath = await resolveFirstAccessible(csvCandidates);
+        Papa.parse(csvPath, {
         download: true,
         header: true,
         skipEmptyLines: true,
+        worker: true,
+        dynamicTyping: false,
         complete: (results) => {
           const rows = Array.isArray(results.data) ? results.data : [];
           const parsed = rows
@@ -318,6 +344,7 @@
         },
         error: (err) => { console.error('CSV 解析失敗：', err); }
       });
+      })();
 
       // 設定 active tab
       (function setActiveTabByPath() {
