@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>統計資料</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      crossorigin=""
+    />
+    <style>
+      :root { --brand: #02C58A; --topbar-h: 64px; }
+      @font-face {
+        font-family: 'JFOpenHuninn';
+        src: url('public/jf-openhuninn-2.1.ttf') format('truetype');
+        font-display: swap;
+      }
+      html, body { height: 100%; margin: 0; }
+      body { font-family: 'JFOpenHuninn', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans"; }
+      .topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); background: var(--brand); color: #fff; display: flex; align-items: center; padding: 0 20px; box-shadow: 0 2px 0 rgba(0,0,0,0.08); z-index: 1500; }
+      .brand { display: flex; align-items: center; gap: 10px; margin-right: 24px; }
+      .brand .title { font-size: 22px; letter-spacing: 1px; }
+      .tabs { display: flex; gap: 28px; flex-wrap: wrap; margin-left: auto; justify-content: flex-end; }
+      .tabs a { color: #fff; text-decoration: none; font-size: 18px; opacity: 0.95; }
+      .tabs a.active { font-weight: 700; text-decoration: underline; text-underline-offset: 6px; }
+      .tabs a:hover { opacity: 1; }
+
+      main { padding: calc(var(--topbar-h) + 20px) 20px 20px; }
+      h1 { margin: 0 0 12px; font-size: 22px; }
+      .muted { color: #666; }
+      .panel { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 14px; }
+      .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+      .count { font-weight: 700; }
+      .controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin: 8px 0 12px; }
+      .controls input[type="date"] { padding: 4px 6px; }
+      .pager { display:flex; align-items:center; gap:10px; margin-top: 10px; }
+      .btn { padding: 4px 10px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+      .btn.primary { background: #2d7ef7; border-color: #2d7ef7; color: #fff; }
+      .species-panel { margin-top: 6px; background: rgba(255,255,255,0.95); border-radius: 8px; padding: 8px 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+      .chk-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 10px; max-height: 160px; overflow: auto; padding: 6px 2px; }
+      .chk-list label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+
+      .table-wrap { overflow: auto; max-height: calc(100vh - 200px); border: 1px solid #eee; border-radius: 8px; }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      thead th { position: sticky; top: 0; background: #f7f7f7; border-bottom: 1px solid #eaeaea; padding: 8px; text-align: left; }
+      tbody td { border-bottom: 1px solid #f0f0f0; padding: 8px; white-space: nowrap; }
+      tbody tr:hover { background: #fafafa; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+          <path d="M12 3l9 8h-2v7a1 1 0 0 1-1 1h-4v-5H10v5H6a1 1 0 0 1-1-1v-7H3l9-8z"/>
+          <path d="M15.5 12.2c-.6 0-1.2.3-1.5.8a1.9 1.9 0 0 0-1.5-.8c-1 .1-1.7.9-1.7 1.9 0 1.7 3.2 3.4 3.2 3.4s3.2-1.7 3.2-3.4c0-1-.8-1.8-1.7-1.9z" fill="#ffe1e6"/>
+        </svg>
+        <a href="index.html" class="title" style="color:#fff; text-decoration:none;">Aurismart</a>
+      </div>
+      <nav class="tabs" id="tabs">
+        <a href="map.html" data-tab="map">地圖資訊</a>
+        <a href="stats.html" data-tab="stats" class="active">統計資料</a>
+        <a href="about.html" data-tab="about">關於我們</a>
+      </nav>
+    </header>
+
+    <main>
+      <h1>統計資料</h1>
+      <div class="panel">
+        <div class="controls">
+          <label for="sStart">開始日期</label>
+          <input type="date" id="sStart" />
+          <label for="sEnd">結束日期</label>
+          <input type="date" id="sEnd" />
+        </div>
+        <div class="species-panel">
+          <div class="row">
+            <strong>物種</strong>
+            <div style="margin-left:auto; display:flex; gap:8px;">
+              <button id="spAll" class="btn">全選</button>
+              <button id="spNone" class="btn">全不選</button>
+            </div>
+          </div>
+          <div id="spGroup" class="chk-list"></div>
+        </div>
+        <div class="species-panel">
+          <div class="row">
+            <strong>地點</strong>
+            <div style="margin-left:auto; display:flex; gap:8px;">
+              <button id="ctAll" class="btn">全選</button>
+              <button id="ctNone" class="btn">全不選</button>
+            </div>
+          </div>
+          <div id="ctGroup" class="chk-list"></div>
+        </div>
+        <div class="row" style="justify-content: flex-end; gap:10px; margin-top:8px;">
+          <button id="sApply" class="btn primary">套用篩選</button>
+        </div>
+        <div class="row muted">共顯示：<span id="rowCount" class="count">0</span> 筆（台灣範圍，分頁 1000/頁）</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>時間</th>
+                <th>地點</th>
+                <th>觀測點資訊</th>
+                <th>辨識結果</th>
+                <th>音檔連結</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button id="prevPg" class="btn">上一頁</button>
+          <span id="pgInfo" class="muted">第 1/1 頁</span>
+          <button id="nextPg" class="btn">下一頁</button>
+        </div>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script>
+      const csvPath = 'tbia_687f2cbd9387a60017b1b656(赤蛙).csv';
+      function fmtDateKey(d) {
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+      function parseDateToUTC(dateStr) { const d = new Date(dateStr); return isNaN(d) ? null : d; }
+      // 僅限台灣本島（排除綠島、蘭嶼、小琉球、龜山島等常見外離島）
+      function isOnTaiwanMainIsland(lat, lon) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+        const inMainBox = lat >= 21.7 && lat <= 25.4 && lon >= 120.0 && lon <= 122.1;
+        if (!inMainBox) return false;
+        if (lat>=22.60 && lat<=22.90 && lon>=121.40 && lon<=121.60) return false; // 綠島
+        if (lat>=21.90 && lat<=22.20 && lon>=121.40 && lon<=121.80) return false; // 蘭嶼
+        if (lat>=22.30 && lat<=22.42 && lon>=120.32 && lon<=120.41) return false; // 小琉球
+        if (lat>=24.82 && lat<=24.90 && lon>=121.90 && lon<=122.05) return false; // 龜山島
+        return true;
+      }
+
+      const tbody = document.getElementById('tbody');
+      const rowCount = document.getElementById('rowCount');
+      const dom = {
+        start: document.getElementById('sStart'),
+        end: document.getElementById('sEnd'),
+        spGroup: document.getElementById('spGroup'),
+        spAll: document.getElementById('spAll'),
+        spNone: document.getElementById('spNone'),
+        apply: document.getElementById('sApply'),
+        prev: document.getElementById('prevPg'),
+        next: document.getElementById('nextPg'),
+        pgInfo: document.getElementById('pgInfo'),
+      };
+      // 以專案掃描結果嵌入音檔清單，循環指派給列
+      const audioFiles = ["public/wav/ABC_RZNT3SHdI44.wav","public/wav/ABC_pJcanb2IvU.wav","public/wav/AFC_Eps6DaYre18.wav","public/wav/AFC_VhTBFgbkHY.wav","public/wav/AFL_7i4x1kEhAk.wav","public/wav/AHC_TBRI250613Long.wav","public/wav/AHC_TBRI250613continueLong.wav","public/wav/AHI_FONOnaEHlqc.wav","public/wav/AHI_sTMXv7pNYwQ.wav","public/wav/AKI_wr4hbnlcQE.wav","public/wav/AMF_SkU2kA32YI.wav","public/wav/AMH_JBS0qGsE0IA.wav","public/wav/AMH_vpicNnrmx3U.wav","public/wav/AMS_nLiYlZkfkdE.wav","public/wav/ANA_QS5qrwmJM6Q.wav","public/wav/ANO_j6iBokzyC5A.wav","public/wav/ARS_DaF1M6Z8RHg.wav","public/wav/AZA_X3j1JmfItE8.wav","public/wav/AZA_cRtYWWi1oJ0.wav","public/wav/AZA_sSl36Suqsy0.wav","public/wav/AZM_9rKiGSVwpM0.wav","public/wav/AZP_2dN18XsU1Rw.wav","public/wav/AZP_IsvUL8JQZo.wav","public/wav/AZU_kgRF6kACkmM.wav"]; 
+
+      function todayStr(){ return new Date().toISOString().slice(0,10); }
+      let allRows = [], filtered = [];
+      let page = 0; const PAGE_SIZE = 1000;
+
+      function updateTabLinksWithParams(sp){
+        document.querySelectorAll('#tabs a').forEach(a=>{ const url=new URL(a.getAttribute('href'), location.href); url.search=sp.toString(); a.setAttribute('href', url.pathname.replace(location.pathname,'')+url.search); });
+      }
+
+      function renderPage(){
+        tbody.innerHTML = '';
+        const start = page * PAGE_SIZE;
+        const end = Math.min(start + PAGE_SIZE, filtered.length);
+        const frag = document.createDocumentFragment();
+        filtered.slice(start, end).forEach((p, idxRel) => {
+          const tr = document.createElement('tr');
+          const place = [p.county, p.township].filter(Boolean).join(' ');
+          const audio = audioFiles.length ? audioFiles[(start + idxRel) % audioFiles.length] : '';
+          tr.innerHTML = `
+            <td>${p.dateKey}</td>
+            <td>${place}</td>
+            <td>${p.locality}</td>
+            <td>${p.name || '未知物種'}</td>
+            <td>${audio ? `<a href=\"${audio}\" target=\"_blank\" rel=\"noopener\">音檔</a>` : ''}</td>
+          `;
+          frag.appendChild(tr);
+        });
+        tbody.appendChild(frag);
+        const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        document.getElementById('pgInfo').textContent = `第 ${Math.min(page+1,totalPages)}/${totalPages} 頁`;
+      }
+
+      function normTW(s){ return (s||'').replace(/\s+/g,'').replace(/臺/g,'台'); }
+
+      function applyFilter(){
+        const startD = dom.start.value ? new Date(dom.start.value+'T00:00:00Z') : null;
+        const endD = dom.end.value ? new Date(dom.end.value+'T23:59:59Z') : null;
+
+        // 先依日期計算可用物種與計數，重建物種選項（保留仍存在的選擇）
+        const inDate = allRows.filter(r=>{ if(!r.date) return false; if(startD&&r.date<startD) return false; if(endD&&r.date>endD) return false; return true; });
+        const spCounts = inDate.reduce((m,r)=>{ const k=r.name||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
+        const available = Object.keys(spCounts);
+        const currChecked = Array.from(dom.spGroup.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value).filter(Boolean);
+        const kept = currChecked.filter(v=>available.includes(v));
+        // 重建物種區塊
+        dom.spGroup.innerHTML = '';
+        available.sort((a,b)=> spCounts[b]-spCounts[a] || a.localeCompare(b,'zh-Hant'));
+        available.forEach(n=>{
+          const id='ss_'+btoa(unescape(encodeURIComponent(n))).replace(/[^a-zA-Z0-9]/g,'');
+          const lbl=document.createElement('label');
+          const chk=document.createElement('input'); chk.type='checkbox'; chk.value=n; chk.id=id; if(kept.includes(n)) chk.checked=true;
+          const span=document.createElement('span'); span.textContent=`${n}（${spCounts[n]||0}）`;
+          lbl.appendChild(chk); lbl.appendChild(span); dom.spGroup.appendChild(lbl);
+        });
+
+        // 組 URL 參數（日期、物種、城市）
+        const sp = new URLSearchParams(location.search);
+        if (dom.start.value) sp.set('start', dom.start.value); else sp.delete('start');
+        if (dom.end.value) sp.set('end', dom.end.value); else sp.delete('end');
+        sp.delete('sp'); kept.forEach(v=>sp.append('sp', v));
+        sp.delete('city');
+        Array.from(document.getElementById('ctGroup').querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value).filter(Boolean).forEach(v=>sp.append('city', v));
+        history.replaceState(null,'', location.pathname + '?' + sp.toString());
+        updateTabLinksWithParams(sp);
+
+        const sel = kept;
+        const selCity = Array.from(document.getElementById('ctGroup').querySelectorAll('input[type="checkbox"]:checked')).map(i=>normTW(i.value));
+        filtered = allRows.filter(r=>{
+          if(!r.date) return false;
+          if (sel.length && !sel.includes(r.name)) return false;
+          if (selCity.length){ const txt = normTW(r.placeText); if(!selCity.some(c=> txt.includes(c))) return false; }
+          if(startD && r.date < startD) return false;
+          if(endD && r.date > endD) return false;
+          return true;
+        });
+        filtered.sort((a,b)=> a.date - b.date);
+        rowCount.textContent = String(filtered.length);
+        page = 0;
+        renderPage();
+      }
+
+      document.getElementById('prevPg').addEventListener('click', ()=>{ if (page>0){ page--; renderPage(); } });
+      document.getElementById('nextPg').addEventListener('click', ()=>{ const totalPages=Math.ceil(filtered.length/PAGE_SIZE); if (page < totalPages-1){ page++; renderPage(); } });
+      document.getElementById('sApply').addEventListener('click', applyFilter);
+
+      function initDatesFromQuery(){
+        const sp = new URLSearchParams(location.search);
+        const start = sp.get('start') || '2018-01-01';
+        const end = sp.get('end') || todayStr();
+        const spList = sp.getAll('sp');
+        const ctList = sp.getAll('city');
+        dom.start.value = start; dom.end.value = end;
+        dom.spGroup.dataset.pref = JSON.stringify(spList);
+        document.getElementById('ctGroup').dataset.pref = JSON.stringify(ctList);
+        if (!sp.get('start') || !sp.get('end')){
+          sp.set('start',start); sp.set('end',end);
+          sp.delete('sp'); spList.forEach(v=>sp.append('sp', v));
+          sp.delete('city'); ctList.forEach(v=>sp.append('city', v));
+          updateTabLinksWithParams(sp);
+        }
+      }
+
+      Papa.parse(csvPath, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rows = Array.isArray(results.data) ? results.data : [];
+          const parsed = rows
+            .map(r => {
+              const lat = parseFloat(r.standardLatitude);
+              const lon = parseFloat(r.standardLongitude);
+              const d = r.standardDate ? parseDateToUTC(r.standardDate) : null;
+              const dateKey = d ? fmtDateKey(d) : null;
+              const county = r.county || '';
+              const township = r.municipality || '';
+              const locality = r.locality || '';
+              const placeText = [county, township, locality].filter(Boolean).join('');
+              return { lat, lon, dateKey, name: r.common_name_c, county, township, locality, placeText, date: d };
+            })
+            .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon) && p.dateKey && isOnTaiwanMainIsland(p.lat, p.lon));
+
+          allRows = parsed; // 全部資料
+          initDatesFromQuery();
+          // 物種下拉（含數量並依數量排序）
+          const spCountsAll = allRows.reduce((m,r)=>{ const k=r.name||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
+          const uniq = Object.keys(spCountsAll).sort((a,b)=> spCountsAll[b]-spCountsAll[a] || a.localeCompare(b,'zh-Hant'));
+          dom.spGroup.innerHTML = '';
+          const prefList = JSON.parse(dom.spGroup.dataset.pref || '[]');
+          uniq.forEach(n=>{
+            const id = 'ss_' + btoa(unescape(encodeURIComponent(n))).replace(/[^a-zA-Z0-9]/g,'');
+            const lbl = document.createElement('label');
+            const chk = document.createElement('input'); chk.type='checkbox'; chk.value=n; chk.id=id;
+            if (prefList.includes(n)) chk.checked = true;
+            const span = document.createElement('span'); span.textContent = `${n}（${spCountsAll[n]||0}）`;
+            lbl.appendChild(chk); lbl.appendChild(span);
+            dom.spGroup.appendChild(lbl);
+          });
+          // 全選/全不選
+          dom.spAll.addEventListener('click', ()=>{ dom.spGroup.querySelectorAll('input[type="checkbox"]').forEach(ch=>ch.checked=true); });
+          dom.spNone.addEventListener('click', ()=>{ dom.spGroup.querySelectorAll('input[type="checkbox"]').forEach(ch=>ch.checked=false); });
+          // 地點（縣市）下拉，依筆數排序
+          const cCounts = allRows.reduce((m,r)=>{ const k=r.county||''; if(!k) return m; m[k]=(m[k]||0)+1; return m; },{});
+          const cities = Object.keys(cCounts).sort((a,b)=> cCounts[b]-cCounts[a] || a.localeCompare(b,'zh-Hant'));
+          const ctGroup = document.getElementById('ctGroup');
+          ctGroup.innerHTML = '';
+          const prefCity = JSON.parse(ctGroup.dataset.pref || '[]');
+          cities.forEach(n=>{
+            const id = 'ct_' + btoa(unescape(encodeURIComponent(n))).replace(/[^a-zA-Z0-9]/g,'');
+            const lbl = document.createElement('label');
+            const chk = document.createElement('input'); chk.type='checkbox'; chk.value=n; chk.id=id;
+            if (prefCity.includes(n)) chk.checked = true;
+            const span = document.createElement('span'); span.textContent = `${n}（${cCounts[n]}）`;
+            lbl.appendChild(chk); lbl.appendChild(span);
+            ctGroup.appendChild(lbl);
+          });
+          document.getElementById('ctAll').addEventListener('click', ()=>{ ctGroup.querySelectorAll('input[type="checkbox"]').forEach(ch=>ch.checked=true); });
+          document.getElementById('ctNone').addEventListener('click', ()=>{ ctGroup.querySelectorAll('input[type="checkbox"]').forEach(ch=>ch.checked=false); });
+          applyFilter();
+        },
+        error: (err) => { console.error('CSV 解析失敗：', err); }
+      });
+
+      // 設定 active tab
+      (function setActiveTabByPath() {
+        const path = (location.pathname.split('/').pop() || 'stats.html').toLowerCase();
+        document.querySelectorAll('#tabs a').forEach(a => {
+          const href = a.getAttribute('href').toLowerCase();
+          if (href === path) a.classList.add('active'); else a.classList.remove('active');
+        });
+      })();
+    </script>
+  </body>
+  
+</html>

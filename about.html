@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>關於我們</title>
+    <style>
+      :root { --brand: #02C58A; --topbar-h: 64px; }
+      @font-face {
+        font-family: 'JFOpenHuninn';
+        src: url('public/jf-openhuninn-2.1.ttf') format('truetype');
+        font-display: swap;
+      }
+      html, body { height: 100%; margin: 0; }
+      body { font-family: 'JFOpenHuninn', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans"; }
+      .topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); background: var(--brand); color: #fff; display: flex; align-items: center; padding: 0 20px; box-shadow: 0 2px 0 rgba(0,0,0,0.08); z-index: 1500; }
+      .brand { display: flex; align-items: center; gap: 10px; margin-right: 24px; }
+      .brand .title { font-size: 22px; letter-spacing: 1px; }
+      .tabs { display: flex; gap: 28px; flex-wrap: wrap; margin-left: auto; justify-content: flex-end; }
+      .tabs a { color: #fff; text-decoration: none; font-size: 18px; opacity: 0.95; }
+      .tabs a.active { font-weight: 700; text-decoration: underline; text-underline-offset: 6px; }
+      .tabs a:hover { opacity: 1; }
+
+      main { padding: calc(var(--topbar-h) + 20px) 20px; }
+      h1 { margin: 0 0 12px; font-size: 22px; }
+      p { line-height: 1.7; color: #333; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+          <path d="M12 3l9 8h-2v7a1 1 0 0 1-1 1h-4v-5H10v5H6a1 1 0 0 1-1-1v-7H3l9-8z"/>
+          <path d="M15.5 12.2c-.6 0-1.2.3-1.5.8a1.9 1.9 0 0 0-1.5-.8c-1 .1-1.7.9-1.7 1.9 0 1.7 3.2 3.4 3.2 3.4s3.2-1.7 3.2-3.4c0-1-.8-1.8-1.7-1.9z" fill="#ffe1e6"/>
+        </svg>
+        <a href="index.html" class="title" style="color:#fff; text-decoration:none;">Aurismart</a>
+      </div>
+      <nav class="tabs" id="tabs">
+        <a href="map.html" data-tab="map">地圖資訊</a>
+        <a href="stats.html" data-tab="stats">統計資料</a>
+        <a href="about.html" data-tab="about" class="active">關於我們</a>
+      </nav>
+    </header>
+
+    <main>
+      <h1>關於我們</h1>
+      <p>此網站用於展示台灣地區生物觀測資料的地圖視覺化與基本統計。</p>
+      <a href="https://tbiadata.tw/zh-hant/">資料來源：TBIA</a>
+    </main>
+
+    <script>
+      (function setActiveTabByPath() {
+        const path = (location.pathname.split('/').pop() || 'about.html').toLowerCase();
+        document.querySelectorAll('#tabs a').forEach(a => {
+          const href = a.getAttribute('href').toLowerCase();
+          if (href === path) a.classList.add('active'); else a.classList.remove('active');
+        });
+      })();
+    </script>
+  </body>
+</html>

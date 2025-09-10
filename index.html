@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>首頁</title>
+    <!-- 青蛙主題可愛首頁 -->
+    <style>
+      :root { --brand: #02C58A; --brand-dark:#019a6d; --topbar-h: 64px; }
+      @font-face {
+        font-family: 'JFOpenHuninn';
+        src: url('public/jf-openhuninn-2.1.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      html, body { height: 100%; margin: 0; }
+      body { font-family: 'JFOpenHuninn', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans"; }
+      .topbar {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: var(--topbar-h);
+        background: var(--brand);
+        color: #fff;
+        display: flex; align-items: center;
+        padding: 0 20px;
+        box-shadow: 0 2px 0 rgba(0,0,0,0.08);
+        z-index: 1500;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; margin-right: 24px; }
+      .brand .title { font-size: 22px; letter-spacing: 1px; color:#fff; text-decoration:none; }
+      .tabs { display: flex; gap: 28px; flex-wrap: wrap; margin-left: auto; justify-content: flex-end; }
+      .tabs a { color: #fff; text-decoration: none; font-size: 18px; opacity: 0.95; }
+      .tabs a.active { font-weight: 700; text-decoration: underline; text-underline-offset: 6px; }
+      .tabs a:hover { opacity: 1; }
+      main { padding: calc(var(--topbar-h) + 20px) 20px; }
+      .hero { position: relative; overflow: hidden; border-radius: 16px; background: linear-gradient(180deg,#d5ffe9 0%,#f3fff9 60%); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+      .hero-inner { display:flex; align-items:center; gap:24px; padding: 36px 28px; }
+      .hero h1 { margin:0; font-size: 34px; color:#0b513a; letter-spacing: 1px; }
+      .hero p { margin:8px 0 0; color:#2b6b55; font-size:16px; }
+      .ctas { display:flex; gap:12px; margin-top:16px; }
+      .btn-ghost, .btn-solid { padding:10px 16px; border-radius: 999px; text-decoration:none; font-weight:700; display:inline-block; }
+      .btn-solid { background: var(--brand); color:#fff; border:1px solid var(--brand); }
+      .btn-solid:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
+      .btn-ghost { border:1px solid var(--brand); color: var(--brand); background:#fff; }
+      .btn-ghost:hover { background:#eafff5; }
+      .frog { width:160px; height:160px; flex:0 0 auto; }
+      .pads { position:absolute; inset:0; pointer-events:none; opacity:0.18; background:
+        radial-gradient(circle at 15% 20%, #02C58A 0 40px, transparent 42px),
+        radial-gradient(circle at 70% 35%, #02C58A 0 34px, transparent 36px),
+        radial-gradient(circle at 85% 75%, #02C58A 0 46px, transparent 48px),
+        radial-gradient(circle at 30% 85%, #02C58A 0 28px, transparent 30px);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+          <path d="M12 3l9 8h-2v7a1 1 0 0 1-1 1h-4v-5H10v5H6a1 1 0 0 1-1-1v-7H3l9-8z"/>
+          <path d="M15.5 12.2c-.6 0-1.2.3-1.5.8a1.9 1.9 0 0 0-1.5-.8c-1 .1-1.7.9-1.7 1.9 0 1.7 3.2 3.4 3.2 3.4s3.2-1.7 3.2-3.4c0-1-.8-1.8-1.7-1.9z" fill="#ffe1e6"/>
+        </svg>
+        <a class="title" href="index.html">Aurismart</a>
+      </div>
+      <nav class="tabs">
+        <a href="map.html">地圖資訊</a>
+        <a href="stats.html">統計資料</a>
+        <a href="about.html">關於我們</a>
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="pads"></div>
+        <div class="hero-inner">
+          <svg class="frog" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#77e4b4"/>
+                <stop offset="100%" stop-color="#34c592"/>
+              </linearGradient>
+            </defs>
+            <circle cx="100" cy="110" r="70" fill="url(#g)"/>
+            <circle cx="65" cy="60" r="28" fill="#77e4b4"/>
+            <circle cx="135" cy="60" r="28" fill="#77e4b4"/>
+            <circle cx="65" cy="60" r="10" fill="#000"/>
+            <circle cx="135" cy="60" r="10" fill="#000"/>
+            <path d="M70 120 Q100 145 130 120" stroke="#0b513a" stroke-width="6" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <h1>Aurismart</h1>
+            <p>可愛、輕量、即點即看。探索台灣的生物觀測地圖與統計！</p>
+            <div class="ctas">
+              <a class="btn-solid" href="map.html">前往地圖</a>
+              <a class="btn-ghost" href="stats.html">看看統計</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
